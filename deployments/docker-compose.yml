@@ -1,0 +1,101 @@
+networks:
+  kfk1:
+    name: ${NETWORK_NAME}
+    external: true
+    ipam:
+      config:
+        - subnet: ${SUBNET}
+
+services:
+  zookeeper_service:
+    image: bitnami/zookeeper:latest
+    container_name: zookeeper
+    restart: always
+    networks:
+      kfk1:
+        ipv4_address: ${ZOOKEEPER_IP_ONNETWORK}
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+      - ZOO_4LW_COMMANDS_WHITELIST=ruok,stat,conf,isro
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc -w 2 localhost ${ZOOKEEPER_PORT_ONNETWORK} | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - ${ZOOKEEPER_PORT_ONHOST}:${ZOOKEEPER_PORT_ONNETWORK}
+    profiles:    
+      - kfk
+
+  kafka_service:
+    image: bitnami/kafka:latest
+    container_name: kafka
+    restart: always
+    depends_on:
+      zookeeper_service:
+        condition: service_healthy
+    networks:
+      kfk1:
+        ipv4_address: ${KAFKA_IP_ONNETWORK}
+    ports:
+      - ${KAFKA_PORT_ONHOST}:${KAFKA_PORT_ONNETWORK}
+    healthcheck:
+      test: ["CMD", "bash", "-c", "kafka-broker-api-versions.sh --bootstrap-server localhost:${KAFKA_PORT_ONNETWORK}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=${ZOOKEEPER_IP_ONNETWORK}:${ZOOKEEPER_PORT_ONNETWORK}
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:${KAFKA_PORT_ONNETWORK}
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://${KAFKA_IP_ONNETWORK}:${KAFKA_PORT_ONNETWORK}
+      # - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      # - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@${KAFKA_IP}:KAFKA_PORT_ONNETWORK
+    profiles:    
+      - kfk
+
+
+  producer_dev:
+    build:
+      context: ${CONTEXT}
+      dockerfile: ${DEPLOYMENTS}/Dockerfile_Go_Dev_Vol
+    stdin_open: true    
+    tty: true   # Allocate a pseudo-TTY.
+    command: ${COMMAND}
+    container_name: kfk1_producer_dev
+    image: kfk1_producer_dev
+    environment:
+      BROKER: ${BROKER}
+    networks:
+      kfk1:
+        ipv4_address: ${PRODUCER_ONNETWORK}
+    restart: unless-stopped    
+    volumes:
+       - ${CONTEXT}:/opt/app        
+    profiles:
+      - producer
+
+
+
+  consumer_group_dev:
+    build:
+      context: ${CONTEXT}
+      dockerfile: ${DEPLOYMENTS}/Dockerfile_Go_Dev_Vol
+    stdin_open: true    
+    tty: true   # Allocate a pseudo-TTY.
+    command: ${COMMAND}
+    container_name: kfk1_consumer_dev
+    image: kfk1_consumer_dev
+    environment:
+      BROKER: ${BROKER}
+    networks:
+      kfk1:
+        ipv4_address: ${CONSUMER_ONNETWORK}
+    restart: unless-stopped    
+    volumes:
+       - ${CONTEXT}:/opt/app        
+    profiles:
+      - consumer
+
+
+ 

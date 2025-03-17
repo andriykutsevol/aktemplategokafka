@@ -1,0 +1,40 @@
+# Set the base image for the build stage
+FROM golang:1.23-bookworm AS build-stage
+
+
+# Enable backports
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/backports.list
+
+# Update package lists and install Go 1.23.5 from backports
+RUN apt-get update && apt-get install -t bookworm-backports -y golang-1.23-go
+
+# Verify the Go version
+RUN go version
+
+
+
+# Add non-root user
+RUN useradd -u 1001 nonrootuser
+
+# Set the working directory for the buiuld stage
+WORKDIR /opt/app
+
+COPY go.mod go.sum ./
+# We do not do the --mount=type=cache here because we want to store dependencies in image.
+RUN go mod download
+
+# Set exposed ports
+# EXPOSE ${APP_PORT}
+
+# Healthcheck
+# HEALTHCHECK --timeout=3s --start-period=3s --retries=1 CMD curl --fail http://localhost:${APP_PORT}/ping || exit 1
+
+# This will work only with the docker-compose --progress=plain and docker-compose build --progress=plain --no-cache
+# RUN echo "Listing files in /opt/app:" && ls -la /opt/app
+RUN echo "Listing files in /opt/app:" && ls -la /opt/app && echo "Done listing files."
+
+# It will be ignored if you'll specify parameters for docker run, or the "or command: []" from .yml
+# So, this CMD allows us run /bin/bash instead of /opt/app/mus conditionally, based on artuments.
+CMD ["/bin/bash"]
+# If you set the "or command: []" from .yml it will be added to the end of ENTRYPOINT
+#ENTRYPOINT []
