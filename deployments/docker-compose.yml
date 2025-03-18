@@ -49,8 +49,27 @@ services:
       - ALLOW_PLAINTEXT_LISTENER=yes
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:${KAFKA_PORT_ONNETWORK}
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://${KAFKA_IP_ONNETWORK}:${KAFKA_PORT_ONNETWORK}
-      # - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      # - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@${KAFKA_IP}:KAFKA_PORT_ONNETWORK
+      # ZooKeeper stores the metadata about existing topics and their partitions.   
+      # Changing KAFKA_CFG_NUM_PARTITIONS does not change the metadata stored in zookeeper.
+      # it only affects new topic creation. Sets the default number of partitions for newly created topics.
+      - KAFKA_CFG_NUM_PARTITIONS=2
+      # kafka-topics.sh Precedence:
+      #   When you use the --partitions option with the kafka-topics.sh command, 
+      #   you are explicitly specifying the number of partitions for the topic.
+      #   This explicit specification overrides the default set by KAFKA_CFG_NUM_PARTITIONS.
+
+
+      # In Kafka, ZooKeeper stores metadata about:
+      #   Brokers
+      #   Topics
+      #   Partitions
+      #   Consumer offsets
+      #   Controller election
+
+      # ZooKeeper Data Persistence:
+      #   ZooKeeper data is stored in memory and periodically persisted to disk.
+      #   This ensures that data is not lost in case of a ZooKeeper server failure.
+
     profiles:    
       - kfk
 

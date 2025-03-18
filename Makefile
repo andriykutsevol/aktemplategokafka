@@ -63,10 +63,33 @@ create_network:
 rm_network: 
 	/bin/bash $(DEPLOYMENTS)/remove_network.sh
 
-# $ docker exec -it zookeeper bash
+# $ docker exec -it zookeeper bash		# Name of a container, not service name
+# $ docker exec -it kafka bash			# Name of a container, not service name
 .PHONY: kafka_up
 kafka_up: create_network
 	docker-compose --project-name $(PROJECT_NAME) -f $(DEPLOYMENTS)/docker-compose.yml --profile kfk up -d
+
+
+# $ docker exec -it kafka bash -c "cat /opt/bitnami/kafka/config/server.properties | grep num.partitions"
+# num.partitions=2
+
+
+
+# $ docker exec -it kafka bash -c "/opt/bitnami/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092 --describe --entity-type brokers --entity-name 0 --describe"
+# Dynamic configs for broker 0 are:
+# This hangs, why?
+
+# This works
+# $ docker exec -it kafka bash -c "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic orders | grep PartitionCount | awk '{print $2}'"
+# Topic: orders   TopicId: IhlmJBrSQI2_obYTEJ11KQ PartitionCount: 2       ReplicationFactor: 1    Configs: 
+
+# $ docker exec -it kafka bash -c "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic orders"
+# Topic: orders   TopicId: IhlmJBrSQI2_obYTEJ11KQ PartitionCount: 2       ReplicationFactor: 1    Configs: 
+#         Topic: orders   Partition: 0    Leader: 1001    Replicas: 1001  Isr: 1001       Elr: N/A        LastKnownElr: N/A
+#         Topic: orders   Partition: 1    Leader: 1001    Replicas: 1001  Isr: 1001       Elr: N/A        LastKnownElr: N/A
+
+
+
 
 
 # The broker variable should point to Kafka itself, not Zookeeper.
@@ -74,6 +97,20 @@ kafka_up: create_network
 # to be the Kafka broker's advertised listener (e.g., kafka:9092 if using Docker networking).
 # Zookeeper is only used by Kafka internally for managing metadata,
 # but your producer and consumer interact directly with Kafka brokers.
+
+# The docker exec command is used to run a new command in a running container.
+
+# Example Topic Creation:
+# $ docker exec -it kafka bash -c "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic orders --partitions 2 --replication-factor 1"
+# Created topic orders.
+
+# Verification:
+# docker exec -it kafka bash -c "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+
+# Delete Topic:
+# docker exec -it kafka bash -c "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic orders"
+
+
 
 
 #-----------------------------------------------------------------------------
@@ -148,7 +185,22 @@ bash_consumer:
 
 
 #-----------------------------------------------------------------------------
+# Now you enter into producer container
+# $ make bash_broducer
+# And enter twice ingo consumer container
+# make bash_consumer
+# make bash_consumer fom other host terminal session.
+# Then do:
+# go run ./				on both comsumer sessions.
+# And then do
+# go run ./ 			on producer session
+# And you'll get load balancing.
 
+
+
+
+
+#-----------------------------------------------------------------------------
 
 
 .PHONY: cleanup
@@ -156,6 +208,9 @@ cleanup:
 	docker compose -p $(PROJECT_NAME) down --volumes
 #	docker compose -p $(PROJECT_NAME) down --volumes --rmi all
 	/bin/bash $(DEPLOYMENTS)/remove_network.sh 
+
+
+
 
 
 
